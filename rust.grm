@@ -112,6 +112,7 @@ define _non_special_token
     | [self]
     | [super]
     | [crate]
+            [/_\-=->,;:::!=?.@*&#%^+<>|~]+
     | ''
     | 'as
     | 'async
@@ -427,9 +428,9 @@ define enum_variant_list
     '}
 end define
 
-token escape_sequence
+define escape_sequence
 '\ ([^xu]|u[0-9a-fA-F]{4}|u{[0-9a-fA-F]+}|x[0-9a-fA-F]{2})
-end token
+end define
 
 define extern_crate_declaration
       ([visibility_modifier]|[SP])

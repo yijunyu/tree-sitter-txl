@@ -1,0 +1,96 @@
+
+define seq_1
+    ', [attribute_item*] [_expression]
+end define
+
+define seq_2
+    ', [_expression]
+end define
+
+define seq_3
+    ', ([_pattern]|[parameter])
+end define
+
+define seq_4
+    ', [attribute_item*] [enum_variant]
+end define
+
+define seq_5
+    ', [attribute_item*] [field_declaration]
+end define
+
+define seq_6
+    ', ([shorthand_field_initializer]|[field_initializer]|[base_field_initializer])
+end define
+
+define seq_7
+    ', [lifetime]
+end define
+
+define seq_8
+    [macro_rule] ';
+end define
+
+define seq_9
+    [macro_rule] ';
+end define
+
+define seq_10
+    ', ([meta_item]|[_literal])
+end define
+
+define seq_11
+    ', [attribute_item*] ([visibility_modifier]|[SP]) [IN] [NL] [SPOFF] 'type ': [SPON] "[_type]"
+end define
+
+define seq_12
+    ', ([attribute_item]|[SP]) ([parameter]|[self_parameter]|[variadic_parameter]|'_|[_type])
+end define
+
+define seq_13
+    ', [_pattern]
+end define
+
+define seq_14
+    ([escape_sequence]|[_string_content])
+end define
+
+define seq_15
+    ', ([field_pattern]|[remaining_field_pattern])
+end define
+
+define seq_16
+    '+ ([_type]|[lifetime]|[higher_ranked_trait_bound]|[removed_trait_bound])
+end define
+
+define seq_17
+    [_expression] ',
+end define
+
+define seq_18
+    ', [_pattern]
+end define
+
+define seq_19
+    ', [_pattern]
+end define
+
+define seq_20
+    ', [_type]
+end define
+
+define seq_21
+    ', ([_type]|[type_binding]|[lifetime]|[_literal]|[block])
+end define
+
+define seq_22
+    ', ([lifetime]|[metavariable]|[_type_identifier]|[constrained_type_parameter]|[optional_type_parameter]|[const_parameter])
+end define
+
+define seq_23
+    ', ([_use_clause])
+end define
+
+define seq_24
+    ', [where_predicate]
+end define
