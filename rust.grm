@@ -1,0 +1,486 @@
+include "tree-sitter.grm"
+
+redefine program
+    [source_file] [NL]
+end define
+
+define _declaration_statement
+      [const_item]
+    | [macro_invocation]
+    | [macro_definition]
+    | [empty_statement]
+    | [attribute_item]
+    | [inner_attribute_item]
+    | [mod_item]
+    | [foreign_mod_item]
+    | [struct_item]
+    | [union_item]
+    | [enum_item]
+    | [type_item]
+    | [function_item]
+    | [function_signature_item]
+    | [impl_item]
+    | [trait_item]
+    | [associated_type]
+    | [let_declaration]
+    | [use_declaration]
+    | [extern_crate_declaration]
+    | [static_item]
+end define
+
+define _expression
+      [_expression_except_range]
+    | [range_expression]
+end define
+
+define _expression_ending_with_block
+      [unsafe_block]
+    | [async_block]
+    | [block]
+    | [if_expression]
+    | [if_let_expression]
+    | [match_expression]
+    | [while_expression]
+    | [while_let_expression]
+    | [loop_expression]
+    | [for_expression]
+    | [const_block]
+end define
+
+define _expression_except_range
+      [unary_expression]
+    | [reference_expression]
+    | [try_expression]
+    | [binary_expression]
+    | [assignment_expression]
+    | [compound_assignment_expr]
+    | [type_cast_expression]
+    | [call_expression]
+    | [return_expression]
+    | [yield_expression]
+    | [_literal]
+    | [identifier]
+          | [_reserved_identifier]
+    | [self]
+    | [scoped_identifier]
+    | [generic_function]
+    | [await_expression]
+    | [field_expression]
+    | [array_expression]
+    | [tuple_expression]
+    | [macro_invocation]
+    | [unit_expression]
+    | [break_expression]
+    | [continue_expression]
+    | [index_expression]
+    | [metavariable]
+    | [closure_expression]
+    | [parenthesized_expression]
+    | [struct_expression]
+    | [_expression_ending_with_block]
+end define
+
+define _expression_statement
+      [_expression] ';
+    | [_expression_ending_with_block]
+end define
+
+define _literal
+      [string_literal]
+    | [raw_string_literal]
+    | [char_literal]
+    | [boolean_literal]
+    | [integer_literal]
+    | [float_literal]
+end define
+
+define _literal_pattern
+      [string_literal]
+    | [raw_string_literal]
+    | [char_literal]
+    | [boolean_literal]
+    | [integer_literal]
+    | [float_literal]
+    | [negative_literal]
+end define
+
+define _non_special_token
+      [_literal]
+    | [identifier]
+    | [metavariable]
+    | [mutable_specifier]
+    | [self]
+    | [super]
+    | [crate]
+                | ''
+    | 'as
+    | 'async
+    | 'await
+    | 'break
+    | 'const
+    | 'continue
+    | 'default
+    | 'enum
+    | 'fn
+    | 'for
+    | 'if
+    | 'impl
+    | 'let
+    | 'loop
+    | 'match
+    | 'mod
+    | 'pub
+    | 'return
+    | 'static
+    | 'struct
+    | 'trait
+    | 'type
+    | 'union
+    | 'unsafe
+    | 'use
+    | 'where
+    | 'while
+    | 'SAFENESS
+    | 'OWNERSHIP
+    | 'LIFETIME
+end define
+
+define _path
+      [self]
+          | [metavariable]
+    | [super]
+    | [crate]
+    | [identifier]
+    | [scoped_identifier]
+    | [_reserved_identifier]
+end define
+
+define _pattern
+      [_literal_pattern]
+          | [identifier]
+    | [scoped_identifier]
+    | [tuple_pattern]
+    | [tuple_struct_pattern]
+    | [struct_pattern]
+    | [ref_pattern]
+    | [slice_pattern]
+    | [captured_pattern]
+    | [reference_pattern]
+    | [remaining_field_pattern]
+    | [mut_pattern]
+    | [range_pattern]
+    | [or_pattern]
+    | [const_block]
+    | '_
+end define
+
+define _statement
+      [_expression_statement]
+    | [_declaration_statement]
+end define
+
+define _token_pattern
+      [token_tree_pattern]
+    | [token_repetition_pattern]
+    | [token_binding_pattern]
+    | [_non_special_token]
+end define
+
+define _tokens
+      [token_tree]
+    | [token_repetition]
+    | [_non_special_token]
+end define
+
+define _type
+      [abstract_type]
+    | [reference_type]
+    | [metavariable]
+    | [pointer_type]
+    | [generic_type]
+    | [scoped_type_identifier]
+    | [tuple_type]
+    | [unit_type]
+    | [array_type]
+    | [function_type]
+    | [_type_identifier]
+    | [macro_invocation]
+    | [empty_type]
+    | [dynamic_type]
+    | [bounded_type]
+      end define
+
+define _use_clause
+      [_path]
+    | [use_as_clause]
+    | [use_list]
+    | [scoped_use_list]
+    | [use_wildcard]
+end define
+
+define binary_expression
+      [IN] [NL] [SPOFF] 'left ': [SPON] [_expression]
+ [IN] [NL] [SPOFF] 'operator ': [SPON] 
+ [IN] [NL] [SPOFF] 'right ': [SPON] [_expression]
+
+    | [IN] [NL] [SPOFF] 'left ': [SPON] [_expression]
+ [IN] [NL] [SPOFF] 'operator ': [SPON] 
+ [IN] [NL] [SPOFF] 'right ': [SPON] [_expression]
+
+    | [IN] [NL] [SPOFF] 'left ': [SPON] [_expression]
+ [IN] [NL] [SPOFF] 'operator ': [SPON] 
+ [IN] [NL] [SPOFF] 'right ': [SPON] [_expression]
+
+    | [IN] [NL] [SPOFF] 'left ': [SPON] [_expression]
+ [IN] [NL] [SPOFF] 'operator ': [SPON] 
+ [IN] [NL] [SPOFF] 'right ': [SPON] [_expression]
+
+    | [IN] [NL] [SPOFF] 'left ': [SPON] [_expression]
+ [IN] [NL] [SPOFF] 'operator ': [SPON] 
+ [IN] [NL] [SPOFF] 'right ': [SPON] [_expression]
+
+    | [IN] [NL] [SPOFF] 'left ': [SPON] [_expression]
+ [IN] [NL] [SPOFF] 'operator ': [SPON] 
+ [IN] [NL] [SPOFF] 'right ': [SPON] [_expression]
+
+    | [IN] [NL] [SPOFF] 'left ': [SPON] [_expression]
+ [IN] [NL] [SPOFF] 'operator ': [SPON] 
+ [IN] [NL] [SPOFF] 'right ': [SPON] [_expression]
+
+    | [IN] [NL] [SPOFF] 'left ': [SPON] [_expression]
+ [IN] [NL] [SPOFF] 'operator ': [SPON] 
+ [IN] [NL] [SPOFF] 'right ': [SPON] [_expression]
+
+    | [IN] [NL] [SPOFF] 'left ': [SPON] [_expression]
+ [IN] [NL] [SPOFF] 'operator ': [SPON] 
+ [IN] [NL] [SPOFF] 'right ': [SPON] [_expression]
+
+end define
+
+define boolean_literal
+      'true
+    | 'false
+end define
+
+define comment
+      [line_comment]
+    | [block_comment]
+end define
+
+define fragment_specifier
+      'block
+    | 'expr
+    | 'ident
+    | 'item
+    | 'lifetime
+    | 'literal
+    | 'meta
+    | 'pat
+    | 'path
+    | 'stmt
+    | 'tt
+    | 'ty
+    | 'vis
+end define
+
+define return_expression
+      'return [_expression]
+    | 'return
+end define
+
+define source_file
+    '( 'source_file [Range]
+        [_statement*] ')
+end define
+
+define token_tree
+      '( [_tokens*] ')
+    | '[ [_tokens*] ']
+    | '{ [_tokens*] '}
+end define
+
+define token_tree_pattern
+      '( [_token_pattern*] ')
+    | '[ [_token_pattern*] ']
+    | '{ [_token_pattern*] '}
+end define
+
+define yield_expression
+      'yield [_expression]
+    | 'yield
+end define
+
+redefine Tree
+    [_declaration_statement] |
+    [_expression] |
+    [_expression_ending_with_block] |
+    [_expression_except_range] |
+    [_expression_statement] |
+    [_field_identifier] |
+    [_literal] |
+    [_literal_pattern] |
+    [_non_special_token] |
+    [_path] |
+    [_pattern] |
+    [_reserved_identifier] |
+    [_statement] |
+    [_token_pattern] |
+    [_tokens] |
+    [_type] |
+    [_type_identifier] |
+    [_use_clause] |
+    [abstract_type] |
+    [arguments] |
+    [array_expression] |
+    [array_type] |
+    [assignment_expression] |
+    [associated_type] |
+    [async_block] |
+    [attribute_item] |
+    [await_expression] |
+    [base_field_initializer] |
+    [binary_expression] |
+    [block] |
+    [boolean_literal] |
+    [bounded_type] |
+    [bracketed_type] |
+    [break_expression] |
+    [call_expression] |
+    [captured_pattern] |
+    [char_literal] |
+    [closure_expression] |
+    [closure_parameters] |
+    [comment] |
+    [compound_assignment_expr] |
+    [const_block] |
+    [const_item] |
+    [const_parameter] |
+    [constrained_type_parameter] |
+    [continue_expression] |
+    [crate] |
+    [declaration_list] |
+    [dynamic_type] |
+    [else_clause] |
+    [empty_statement] |
+    [empty_type] |
+    [enum_item] |
+    [enum_variant] |
+    [enum_variant_list] |
+    [escape_sequence] |
+    [extern_crate_declaration] |
+    [extern_modifier] |
+    [field_declaration] |
+    [field_declaration_list] |
+    [field_expression] |
+    [field_initializer] |
+    [field_initializer_list] |
+    [field_pattern] |
+    [for_expression] |
+    [for_lifetimes] |
+    [foreign_mod_item] |
+    [fragment_specifier] |
+    [function_item] |
+    [function_modifiers] |
+    [function_signature_item] |
+    [function_type] |
+    [generic_function] |
+    [generic_type] |
+    [generic_type_with_turbofish] |
+    [higher_ranked_trait_bound] |
+    [identifier] |
+    [if_expression] |
+    [if_let_expression] |
+    [impl_item] |
+    [index_expression] |
+    [inner_attribute_item] |
+    [integer_literal] |
+    [last_match_arm] |
+    [let_declaration] |
+    [lifetime] |
+    [line_comment] |
+    [loop_expression] |
+    [loop_label] |
+    [macro_definition] |
+    [macro_invocation] |
+    [macro_rule] |
+    [match_arm] |
+    [match_block] |
+    [match_expression] |
+    [match_pattern] |
+    [meta_arguments] |
+    [meta_item] |
+    [metavariable] |
+    [mod_item] |
+    [mut_pattern] |
+    [mutable_specifier] |
+    [negative_literal] |
+    [optional_type_parameter] |
+    [or_pattern] |
+    [ordered_field_declaration_list] |
+    [parameter] |
+    [parameters] |
+    [parenthesized_expression] |
+    [pointer_type] |
+    [qualified_type] |
+    [range_expression] |
+    [range_pattern] |
+    [ref_pattern] |
+    [reference_expression] |
+    [reference_pattern] |
+    [reference_type] |
+    [remaining_field_pattern] |
+    [removed_trait_bound] |
+    [return_expression] |
+    [safe_impl] |
+    [safe_trait] |
+    [safeness] |
+    [scoped_identifier] |
+    [scoped_type_identifier] |
+    [scoped_type_identifier_in_expression_position] |
+    [scoped_use_list] |
+    [self] |
+    [self_parameter] |
+    [shorthand_field_initializer] |
+    [slice_pattern] |
+    [source_file] |
+    [static_item] |
+    [string_literal] |
+    [struct_expression] |
+    [struct_item] |
+    [struct_pattern] |
+    [super] |
+    [token_binding_pattern] |
+    [token_repetition] |
+    [token_repetition_pattern] |
+    [token_tree] |
+    [token_tree_pattern] |
+    [trait_bounds] |
+    [trait_item] |
+    [try_expression] |
+    [tuple_expression] |
+    [tuple_pattern] |
+    [tuple_struct_pattern] |
+    [tuple_type] |
+    [type_arguments] |
+    [type_binding] |
+    [type_cast_expression] |
+    [type_item] |
+    [type_parameters] |
+    [unary_expression] |
+    [union_item] |
+    [unit_expression] |
+    [unit_type] |
+    [unsafe_block] |
+    [use_as_clause] |
+    [use_declaration] |
+    [use_list] |
+    [use_wildcard] |
+    [variadic_parameter] |
+    [visibility_modifier] |
+    [where_clause] |
+    [where_predicate] |
+    [while_expression] |
+    [while_let_expression] |
+    [yield_expression] |
+   ...
+end define
