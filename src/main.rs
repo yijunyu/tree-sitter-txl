@@ -93,7 +93,7 @@ fn tree_sitter_to_txl() -> Result<(), std::io::Error> {
     let mut file = File::create(language)?;
     let file2 = File::create(&format!("{}-seq.grm", v["name"].as_str().unwrap()))?;
 
-    // writeln!(file, "include \"tree-sitter.grm\"")?;
+    writeln!(file, "include \"tree-sitter.grm\"")?;
     writeln!(file, "include \"{}\"", &format!("{}-seq.grm", v["name"].as_str().unwrap()))?;
     let start_rule_name = v["start_rule"].as_str().unwrap();
     writeln!(

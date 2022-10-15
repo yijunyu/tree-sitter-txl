@@ -1,0 +1,25 @@
+% TXL Basis Grammar for Tree-Sitter 
+% Yijun Yu, Huawei Technologies, October 2022
+% Copyright 2022, Huawei Technologies Co. Ltd.
+
+define program
+   [Tree] [NL]
+end define
+
+define Tree
+     '( [id] [Range] 
+	[IN] [AttributeOrTree*] [EX] ')
+end define
+
+define Range
+   '[ [integer_number] ', [integer_number] '] '- '[ [integer_number] ', [integer_number] ']
+end define
+
+define AttributeOrTree
+     [NL] [Tree]
+   | [NL] [SPOFF] [id] ': [SPON] [Tree]
+end define
+
+tokens
+    integer_number "[(0b[01_]+)(0o[01234567_]+)(0x[\dabcdefABCDEF_]+)(\d[\d_]*)][(u8)(u16)(u32)(u64)(u128)(usize)(i8)(i16)(i32)(i64)(i128)(isize)]?"
+end tokens

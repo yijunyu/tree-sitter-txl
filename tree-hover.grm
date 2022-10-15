@@ -1,0 +1,27 @@
+include "tree-sitter.grm"
+
+define line_comment
+   '( 'line_comment [Range] ')
+end define
+
+define identifier
+   '( 'identifier [Range] ')
+end define
+
+define arguments
+   '( 'arguments [Range] ')
+end define
+
+define call_expression
+   '( 'call_expression [Range] 
+      [IN] [NL] [SPOFF] 'function ': [SPON] [identifier]
+           [NL] [SPOFF] 'arguments ': [SPON] [arguments] [EX] ')
+end define
+
+redefine Tree
+     [line_comment]
+   | [identifier]
+   | [arguments]
+   | [call_expression]
+   | ...
+end define
