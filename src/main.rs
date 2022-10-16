@@ -279,7 +279,46 @@ fn to_txl_2(mut file: &File, node: &Value) -> String {
                 .iter()
                 .map(|x| to_txl_2(file, x))
                 .filter(|x| x != "")
+                .collect::<HashSet<String>>()
+                .into_iter()
                 .collect::<Vec<String>>();
+            if branches.len() == 2 && branches[0] == "[empty]" {
+                let s = branches[1].as_bytes();
+                let c = String::from(&branches[1]).matches("[").count();
+                if c == 1 {
+                    let sub_s = &s[1..s.len()-1];
+                    if s[s.len()-2] != "*".as_bytes()[0] {
+                        let ss = std::str::from_utf8(sub_s).unwrap();
+                        format!("[{}?]", ss)
+                    } else {
+                        format!("{}", branches[1])
+                    }
+                } else {
+                    let kk = format!("optional_{}", get_id());
+                    write!(file, "\ndefine {}", kk).ok();
+                    write!(file, "\n    {}", std::str::from_utf8(s).unwrap()).ok();
+                    writeln!(file, "\nend define").ok();
+                    format!("[{}?]", kk)
+                }
+            } else if branches.len() == 2 && branches[1] == "[empty]" {
+                let s = branches[0].as_bytes();
+                let c = String::from(&branches[0]).matches("[").count();
+                if c == 1 {
+                    let sub_s = &s[1..s.len()-1];
+                    if s[s.len()-2] != "*".as_bytes()[0] {
+                        let ss = std::str::from_utf8(sub_s).unwrap();
+                        format!("[{}?]", ss)
+                    } else {
+                        format!("{}", branches[0])
+                    }
+                } else {
+                    let kk = format!("optional_{}", get_id());
+                    write!(file, "\ndefine {}", kk).ok();
+                    write!(file, "\n    {}", std::str::from_utf8(s).unwrap()).ok();
+                    writeln!(file, "\nend define").ok();
+                    format!("[{}?]", kk)
+                }
+            } else 
             if branches.len() > 1 {
                 format!("({})", branches.join("|"))
             } else if branches.len() == 1 {
@@ -430,7 +469,7 @@ fn tree_sitter_to_txl_2() -> Result<(), std::io::Error> {
                     } else {
                         writeln!(file, "    '( '{} [Range] ')", k)?;
                     }
-                    writeln!(file, "end define")?;
+                    writeln!(file, "\nend define")?;
                 }
                 "FIELD" => {
                     let mut kk = String::from(k);
@@ -438,7 +477,13 @@ fn tree_sitter_to_txl_2() -> Result<(), std::io::Error> {
                         kk = String::from("COMMENT");
                     }
                     writeln!(file, "\nredefine {}", kk)?;
-                    writeln!(file, "{}", to_txl_2(&file2, &rule["content"])).ok();
+                    writeln!(
+                        file,
+                        "('{} [Range] \n {})",
+                        kk,
+                        to_txl_2(&file2, &rule["content"])
+                    )
+                    .ok();
                     writeln!(file, "end define")?;
                 }
                 "PREC_LEFT" | "PREC" | "PREC_RIGHT" => {
@@ -525,6 +570,50 @@ mod tests {
         format!("{}", std::str::from_utf8(&output.stdout).unwrap())
     }
 
+    fn test_to_txl2(v: Value) -> String {
+        println!("{:?}", v);
+        let file2 = File::create("tmp-seq1.grm").unwrap();
+        to_txl_2(&file2, &v)
+    }
+
+    #[test]
+    fn gen_txl() {
+        insta::assert_snapshot!(test_to_txl2(json!({
+            "type": "REPEAT",
+            "content": {
+              "type": "SYMBOL",
+              "name": "statement"
+            }
+        })
+        ), @"[statement*]");
+        insta::assert_snapshot!(test_to_txl2(json!({
+            "type": "PREC_LEFT",
+            "value": 0,
+            "content": {
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "STRING",
+                  "value": "continue"
+                },
+                {
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "SYMBOL",
+                      "name": "loop_label"
+                    },
+                    {
+                      "type": "BLANK"
+                    }
+                  ]
+                }
+              ]
+            }
+          })
+        ), @"[loop_label?]");
+    }
+
     #[test]
     fn run_txl() {
         tree_sitter_to_txl_2().ok();
@@ -535,15 +624,18 @@ mod tests {
         insta::assert_snapshot!(runx("(identifier [3, 15] - [3, 16])"), 
             @r###"
         <program>
-         <Tree><captured_pattern><identifier> ( identifier
-            <Range> [
-             <integer_number>3</integer_number> ,
-             <integer_number>15</integer_number> ] - [
-             <integer_number>3</integer_number> ,
-             <integer_number>16</integer_number> ]
-            </Range> )
-           </identifier>
-          </captured_pattern>
+         <Tree><break_expression>
+           <opt_loop_label><loop_label><identifier> ( identifier
+              <Range> [
+               <integer_number>3</integer_number> ,
+               <integer_number>15</integer_number> ] - [
+               <integer_number>3</integer_number> ,
+               <integer_number>16</integer_number> ]
+              </Range> )
+             </identifier>
+            </loop_label>
+           </opt_loop_label>
+          </break_expression>
          </Tree>
         </program>
         "###);
@@ -568,28 +660,23 @@ mod tests {
         insta::assert_snapshot!(runx(r"(lifetime [3, 14] - [3, 16]
             (identifier [3, 15] - [3, 16]))"), @r###"
         <program>
-         <Tree> (
-          <id>lifetime</id>
-          <Range> [
-           <integer_number>3</integer_number> ,
-           <integer_number>14</integer_number> ] - [
-           <integer_number>3</integer_number> ,
-           <integer_number>16</integer_number> ]
-          </Range>
-          <repeat_AttributeOrTree>
-           <AttributeOrTree>
-            <Tree><captured_pattern><identifier> ( identifier
-               <Range> [
-                <integer_number>3</integer_number> ,
-                <integer_number>15</integer_number> ] - [
-                <integer_number>3</integer_number> ,
-                <integer_number>16</integer_number> ]
-               </Range> )
-              </identifier>
-             </captured_pattern>
-            </Tree>
-           </AttributeOrTree>
-          </repeat_AttributeOrTree> )
+         <Tree><bounded_type><lifetime> ( lifetime
+            <Range> [
+             <integer_number>3</integer_number> ,
+             <integer_number>14</integer_number> ] - [
+             <integer_number>3</integer_number> ,
+             <integer_number>16</integer_number> ]
+            </Range>
+            <identifier> ( identifier
+             <Range> [
+              <integer_number>3</integer_number> ,
+              <integer_number>15</integer_number> ] - [
+              <integer_number>3</integer_number> ,
+              <integer_number>16</integer_number> ]
+             </Range> )
+            </identifier> )
+           </lifetime>
+          </bounded_type>
          </Tree>
         </program>
         "###);

@@ -39,7 +39,7 @@ Although we have prepared the production rules, the token rules still need more
 work.
 
 *Prototype* `src/main.rs` does the transformation by converting
-`examples/rust.json` into `rust.grm` and `rust-seq.grm` respectively. 
+`examples/rust.json` into `rust1.grm` and `rust-seq1.grm` respectively. 
 
 ## Option 2 is incremental. 
 
@@ -56,7 +56,11 @@ S-expressions into different AST's. Use `make` to see the effects, and use `txl
 -x` option to print out different XML tags to debug the AST's.
 
 *Solution* `src/main.rs` does the transformation by converting
-`examples/rust.json` into `rust.grm` which refines `tree-sitter.grm`. 
+`examples/rust.json` into `rust2.grm` which refines `tree-sitter.grm`. 
+
+```bash
+cargo test
+```
 
 *Note* Since the tokens of concrete syntax have been discarded, transforming
 the AST's may result in correct AST but incorrect code. Hence, we will need to
