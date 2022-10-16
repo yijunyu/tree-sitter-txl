@@ -1,0 +1,13 @@
+include "XML/Txl/XML.Grammar"
+include "XML_WellFormed.Rul"
+
+redefine identifier
+   '< 'identifier '>
+   [content]
+   '< '/ 'identifier '>
+end define
+
+redefine element
+   [identifier]
+   | ...
+end define

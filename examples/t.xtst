@@ -1,0 +1,166 @@
+<source_file>
+  <line_comment>// `print_refs` takes two references to `i32` which have different</line_comment>
+
+  <line_comment>// lifetimes `'a` and `'b`. These two lifetimes must both be at</line_comment>
+
+  <line_comment>// least as long as the function `print_refs`.</line_comment>
+
+  <function_item>fn
+    <identifier type="name">print_refs</identifier>
+
+    <type_parameters type="type_parameters">&lt;
+      <lifetime>'
+        <identifier>a</identifier>
+</lifetime>
+,
+      <lifetime>'
+        <identifier>b</identifier>
+</lifetime>
+&gt;</type_parameters>
+
+    <parameters type="parameters">(
+      <parameter>
+        <identifier type="pattern">x</identifier>
+:
+        <reference_type type="type">&amp;
+          <lifetime>'
+            <identifier>a</identifier>
+</lifetime>
+
+          <primitive_type type="type">i32</primitive_type>
+</reference_type>
+</parameter>
+,
+      <parameter>
+        <identifier type="pattern">y</identifier>
+:
+        <reference_type type="type">&amp;
+          <lifetime>'
+            <identifier>b</identifier>
+</lifetime>
+
+          <primitive_type type="type">i32</primitive_type>
+</reference_type>
+</parameter>
+)</parameters>
+
+    <block type="body">{
+      <macro_invocation>
+        <identifier type="macro">println</identifier>
+!
+        <token_tree>(
+          <string_literal>""</string_literal>
+
+          <identifier>x</identifier>
+
+          <identifier>y</identifier>
+)</token_tree>
+</macro_invocation>
+;}</block>
+</function_item>
+
+  <line_comment>// A function which takes no arguments, but has a lifetime parameter `'a`.</line_comment>
+
+  <function_item>fn
+    <identifier type="name">failed_borrow</identifier>
+
+    <type_parameters type="type_parameters">&lt;
+      <lifetime>'
+        <identifier>a</identifier>
+</lifetime>
+&gt;</type_parameters>
+
+    <parameters type="parameters">()</parameters>
+
+    <block type="body">{
+      <let_declaration>let
+        <identifier type="pattern">_x</identifier>
+=
+        <integer_literal type="value">12</integer_literal>
+;</let_declaration>
+
+      <line_comment>// ERROR: `_x` does not live long enough</line_comment>
+
+      <let_declaration>let
+        <identifier type="pattern">y</identifier>
+:
+        <reference_type type="type">&amp;
+          <lifetime>'
+            <identifier>a</identifier>
+</lifetime>
+
+          <primitive_type type="type">i32</primitive_type>
+</reference_type>
+=
+        <reference_expression type="value">&amp;
+          <identifier type="value">_x</identifier>
+</reference_expression>
+;</let_declaration>
+
+      <line_comment>// Attempting to use the lifetime `'a` as an explicit type annotation </line_comment>
+
+      <line_comment>// inside the function will fail because the lifetime of `&amp;_x` is shorter</line_comment>
+
+      <line_comment>// than that of `y`. A short lifetime cannot be coerced into a longer one.</line_comment>
+}</block>
+</function_item>
+
+  <function_item>fn
+    <identifier type="name">main</identifier>
+
+    <parameters type="parameters">()</parameters>
+
+    <block type="body">{
+      <line_comment>// Create variables to be borrowed below.</line_comment>
+
+      <let_declaration>let
+        <tuple_pattern type="pattern">(
+          <identifier>four</identifier>
+,
+          <identifier>nine</identifier>
+)</tuple_pattern>
+=
+        <tuple_expression type="value">(
+          <integer_literal>4</integer_literal>
+,
+          <integer_literal>9</integer_literal>
+)</tuple_expression>
+;</let_declaration>
+
+      <line_comment>// Borrows (`&amp;`) of both variables are passed into the function.</line_comment>
+
+      <call_expression>
+        <identifier type="function">print_refs</identifier>
+
+        <arguments type="arguments">(
+          <reference_expression>&amp;
+            <identifier type="value">four</identifier>
+</reference_expression>
+,
+          <reference_expression>&amp;
+            <identifier type="value">nine</identifier>
+</reference_expression>
+)</arguments>
+</call_expression>
+;
+      <line_comment>// Any input which is borrowed must outlive the borrower. </line_comment>
+
+      <line_comment>// In other words, the lifetime of `four` and `nine` must </line_comment>
+
+      <line_comment>// be longer than that of `print_refs`.</line_comment>
+
+      <call_expression>
+        <identifier type="function">failed_borrow</identifier>
+
+        <arguments type="arguments">()</arguments>
+</call_expression>
+;
+      <line_comment>// `failed_borrow` contains no references to force `'a` to be </line_comment>
+
+      <line_comment>// longer than the lifetime of the function, but `'a` is longer.</line_comment>
+
+      <line_comment>// Because the lifetime is never constrained, it defaults to `'static`.</line_comment>
+}</block>
+</function_item>
+</source_file>
+

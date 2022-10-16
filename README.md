@@ -18,11 +18,14 @@ with tree-sitter's ASTs while retaining TXL's capability of transformations.
 In order to use tree-sitter to parse Rust code into ASTs, then use TXL to
 perform transformations on the ASTs, we need to adapting one of them.
 
-In this project, we aim to do two types of adaptations:
+In this project, we aim to do three types of adaptations:
 
 1. Generating a TXL grammar from a Tree-Sitter JSON grammar;
 
 2. Creating a TXL grammar for Tree-Sitter S-expressions, then adapt the TXL grammar
+   according to Tree-Sitter's JSON grammar.
+
+3. Creating a TXL grammar for Tree-Sitter's XML markups, then adapt the TXL grammar
    according to Tree-Sitter's JSON grammar.
 
 ## Option 1 is more direct. 
@@ -68,3 +71,36 @@ use the Tree-Sitter's editing capability to ensure that the transformed code
 conforms to the syntax rules when there is no error, and the reparsed AST's is
 the same as the transformed AST. Otherwise, we will reject the transformation
 and print a warning.
+
+## Option 3 is less ambigious. 
+
+The S-expressions neglect all concrete tokens, which can make the parser
+ambigious to parse them,  because the same S-expression might call for
+different production rules due to missing tokens in the concrete syntax.
+
+Therefore, another way is to take into account of the concrete tokens
+in-between the AST's node types in order to disambigue multiple applicable
+production rules. 
+
+*Prototype* `tree-sitter-xml-hover.grm` refines `XML/Txl/XML.Grammar` to parse the same
+XML-based AST's into different AST's. Use `make` to see the effects, and use `txl
+-x` option to print out different XML tags to debug the AST's.
+
+In the following, the two grammars have no difference at the token level.
+```bash
+txl -q -s 2000 -in 0 -i XML/Txl t.xtst -o t.1
+txl -q -s 2000 -in 0 -i XML/Txl XML/Txl/XML.Txl t.xtst -o t.2
+diff t.1 t.2
+```
+
+However, in the following, the two grammars are different in terms of the recognition of
+additional AST related production rules:
+```bash
+txl -q -s 2000 -in 0 -i XML/Txl t.xtst -x -o t.1
+txl -q -s 2000 -in 0 -i XML/Txl XML/Txl/XML.Txl t.xtst -x -o t.2
+diff t.1 t.2
+```
+
+In this way, we may generate such adapted AST rules from a tree-sitter's JSON grammar,
+using a similar approach to Option 2. 
+

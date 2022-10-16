@@ -680,5 +680,65 @@ mod tests {
          </Tree>
         </program>
         "###);
+        // TODO This one is not right
+        insta::assert_snapshot!(runx(r"(type_parameters [3, 13] - [3, 21]
+            (lifetime [3, 14] - [3, 16]
+              (identifier [3, 15] - [3, 16]))
+            (lifetime [3, 18] - [3, 20]
+              (identifier [3, 19] - [3, 20])))"), @r###"
+        <program>
+         <Tree> (
+          <id>type_parameters</id>
+          <Range> [
+           <integer_number>3</integer_number> ,
+           <integer_number>13</integer_number> ] - [
+           <integer_number>3</integer_number> ,
+           <integer_number>21</integer_number> ]
+          </Range>
+          <repeat_AttributeOrTree>
+           <AttributeOrTree>
+            <Tree><bounded_type><lifetime> ( lifetime
+               <Range> [
+                <integer_number>3</integer_number> ,
+                <integer_number>14</integer_number> ] - [
+                <integer_number>3</integer_number> ,
+                <integer_number>16</integer_number> ]
+               </Range>
+               <identifier> ( identifier
+                <Range> [
+                 <integer_number>3</integer_number> ,
+                 <integer_number>15</integer_number> ] - [
+                 <integer_number>3</integer_number> ,
+                 <integer_number>16</integer_number> ]
+                </Range> )
+               </identifier> )
+              </lifetime>
+             </bounded_type>
+            </Tree>
+           </AttributeOrTree>
+           <AttributeOrTree>
+            <Tree><bounded_type><lifetime> ( lifetime
+               <Range> [
+                <integer_number>3</integer_number> ,
+                <integer_number>18</integer_number> ] - [
+                <integer_number>3</integer_number> ,
+                <integer_number>20</integer_number> ]
+               </Range>
+               <identifier> ( identifier
+                <Range> [
+                 <integer_number>3</integer_number> ,
+                 <integer_number>19</integer_number> ] - [
+                 <integer_number>3</integer_number> ,
+                 <integer_number>20</integer_number> ]
+                </Range> )
+               </identifier> )
+              </lifetime>
+             </bounded_type>
+            </Tree>
+           </AttributeOrTree>
+          </repeat_AttributeOrTree> )
+         </Tree>
+        </program>
+        "###);
     }
 }
