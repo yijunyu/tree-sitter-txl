@@ -1,7 +1,7 @@
 % Rust parser and pretty printer
 % Copyright 2020, Huawei Technologies Co. Ltd.
 
-% include "tree-hover.grm"
+% include "tree-sitter-hover.grm"
 include "rust2.grm"
 
 function main
