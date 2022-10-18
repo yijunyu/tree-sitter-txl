@@ -4,7 +4,7 @@ use std::{
     collections::HashSet,
     fs::{self, File},
     io::Write,
-    sync::{atomic::{AtomicUsize, Ordering}, Mutex},
+    sync::atomic::{AtomicUsize, Ordering},
 };
 
 static COUNTER: AtomicUsize = AtomicUsize::new(1);
@@ -522,9 +522,7 @@ fn tree_sitter_to_txl_2() -> Result<(), std::io::Error> {
     Ok(())
 }
 
-static CONTEXT: Mutex<Option<std::string::String>> = Mutex::new(None);
-
-fn to_txl_3(mut file: &File, node: &Value) -> String {
+fn to_txl_3(mut file: &File, node: &Value, ctxt: &str) -> String {
     let node_type = node.as_object().unwrap()["type"].as_str().unwrap();
     match node_type {
         "REPEAT" | "REPEAT1" => {
@@ -532,7 +530,7 @@ fn to_txl_3(mut file: &File, node: &Value) -> String {
             if sub_node.as_object().unwrap()["type"] != "SEQ"
                 && sub_node.as_object().unwrap()["type"] != "CHOICE"
             {
-                let s = to_txl_3(file, sub_node);
+                let s = to_txl_3(file, sub_node, ctxt);
                 if s.len() > 1 {
                     let u = &s[1..s.len() - 1];
                     format!("[{}*]", u)
@@ -540,13 +538,18 @@ fn to_txl_3(mut file: &File, node: &Value) -> String {
                     "".to_string()
                 }
             } else {
-                let s = to_txl_3(file, sub_node);
+                let s = to_txl_3(file, sub_node, ctxt);
                 if s != "" {
                     let kk = format!("seq_{}", get_id());
                     write!(file, "\ndefine {}", kk).ok();
                     write!(file, "\n    {}", s).ok();
                     writeln!(file, "\nend define").ok();
-                    format!("[{}*]", kk)
+                    if node_type == "REPEAT" {
+                        format!("[{}*]", kk)
+                    } else {
+                        // REPEAT1
+                        format!("[{}+]", kk)
+                    }
                 } else {
                     "".to_string()
                 }
@@ -558,22 +561,18 @@ fn to_txl_3(mut file: &File, node: &Value) -> String {
                 "comment" => name = "COMMENT",
                 _ => {}
             }
-            if name.starts_with("_") {
-                "".to_string()
-            } else {
-                format!("[{}]", name)
-            }
+            format!("[{}]", name)
         }
         "TOKEN" => {
             format!(
                 "{:?}",
-                to_txl_3(file, &node.as_object().unwrap()["content"])
+                to_txl_3(file, &node.as_object().unwrap()["content"], ctxt)
             )
         }
         "IMMEDIATE_TOKEN" => {
             format!(
                 "{:?}",
-                to_txl_3(file, &node.as_object().unwrap()["content"])
+                to_txl_3(file, &node.as_object().unwrap()["content"], ctxt)
             )
         }
         "STRING" => {
@@ -581,21 +580,21 @@ fn to_txl_3(mut file: &File, node: &Value) -> String {
         }
         "PREC_LEFT" | "PREC" | "PREC_RIGHT" => {
             let obj = &node.as_object().unwrap()["content"];
-            to_txl_3(file, obj)
+            to_txl_3(file, obj, ctxt)
         }
         "SEQ" => {
             let members = node.as_object().unwrap()["members"].as_array().unwrap();
             members
                 .iter()
-                .map(|x| to_txl_3(file, x))
+                .map(|x| to_txl_3(file, x, ctxt))
                 .collect::<Vec<String>>()
                 .join(" ")
         }
-        "CHOICE" => {            
+        "CHOICE" => {
             let members = node.as_object().unwrap()["members"].as_array().unwrap();
             let branches = members
                 .iter()
-                .map(|x| to_txl_3(file, x))
+                .map(|x| to_txl_3(file, x, ctxt))
                 .filter(|x| x != "")
                 .collect::<HashSet<String>>()
                 .into_iter()
@@ -604,12 +603,19 @@ fn to_txl_3(mut file: &File, node: &Value) -> String {
                 let s = branches[1].as_bytes();
                 let c = String::from(&branches[1]).matches("[").count();
                 if c == 1 {
-                    let sub_s = &s[1..s.len()-1];
-                    if s[s.len()-2] != "*".as_bytes()[0] {
+                    let sub_s = &s[1..s.len() - 1];
+                    if branches[1].starts_with("[")
+                        && branches[1].ends_with("]")
+                        && !branches[1].ends_with("*]")
+                    {
                         let ss = std::str::from_utf8(sub_s).unwrap();
                         format!("[{}?]", ss)
                     } else {
-                        format!("{}", branches[1])
+                        let kk = format!("optional_{}", get_id());
+                        write!(file, "\ndefine {}", kk).ok();
+                        write!(file, "\n    {}", std::str::from_utf8(s).unwrap()).ok();
+                        writeln!(file, "\nend define").ok();
+                        format!("[{}?]", kk)
                     }
                 } else {
                     let kk = format!("optional_{}", get_id());
@@ -622,12 +628,19 @@ fn to_txl_3(mut file: &File, node: &Value) -> String {
                 let s = branches[0].as_bytes();
                 let c = String::from(&branches[0]).matches("[").count();
                 if c == 1 {
-                    let sub_s = &s[1..s.len()-1];
-                    if s[s.len()-2] != "*".as_bytes()[0] {
+                    let sub_s = &s[1..s.len() - 1];
+                    if branches[0].starts_with("[")
+                        && branches[0].ends_with("]")
+                        && !branches[0].ends_with("*]")
+                    {
                         let ss = std::str::from_utf8(sub_s).unwrap();
                         format!("[{}?]", ss)
                     } else {
-                        format!("{}", branches[0])
+                        let kk = format!("optional_{}", get_id());
+                        write!(file, "\ndefine {}", kk).ok();
+                        write!(file, "\n    {}", std::str::from_utf8(s).unwrap()).ok();
+                        writeln!(file, "\nend define").ok();
+                        format!("[{}?]", kk)
                     }
                 } else {
                     let kk = format!("optional_{}", get_id());
@@ -636,8 +649,7 @@ fn to_txl_3(mut file: &File, node: &Value) -> String {
                     writeln!(file, "\nend define").ok();
                     format!("[{}?]", kk)
                 }
-            } else
-            if branches.len() > 1 {
+            } else if branches.len() > 1 {
                 format!("({})", branches.join("|"))
             } else if branches.len() == 1 {
                 format!("{}", branches[0])
@@ -647,12 +659,10 @@ fn to_txl_3(mut file: &File, node: &Value) -> String {
         }
         "ALIAS" => "".to_string(),
         "BLANK" => "[empty]".to_string(),
-        "PATTERN" => {
-            "".to_string()
-        }
+        "PATTERN" => "".to_string(),
         "FIELD" => {
-            let mut content = to_txl_3(file, &node.as_object().unwrap()["content"]);
-            *CONTEXT.lock().unwrap() = Some(format!("{}",node.as_object().unwrap()["name"].as_str().unwrap()));
+            let context = node.as_object().unwrap()["name"].as_str().unwrap();
+            let mut content = to_txl_3(file, &node.as_object().unwrap()["content"], context);
             if content == "" {
                 content = String::from("[element]");
             }
@@ -670,7 +680,7 @@ fn tree_sitter_to_txl_3() -> Result<(), std::io::Error> {
     let language = &format!("{}3.grm", v["name"].as_str().unwrap());
     let mut file = File::create(language)?;
     let file2 = File::create(&format!("{}-seq3.grm", v["name"].as_str().unwrap()))?;
-    writeln!(file, "include \"XML/Txl/XML.Grammar\"")?;
+    writeln!(file, "include \"XML.Grammar\"")?;
     writeln!(file, "include \"XML_WellFormed.Rul\"")?;
     writeln!(
         file,
@@ -708,135 +718,151 @@ fn tree_sitter_to_txl_3() -> Result<(), std::io::Error> {
 
     let rules = &mut v["rules"].as_object().unwrap();
     for (k, v) in rules.iter() {
-        if !k.starts_with("_") {
-            let rule = v.as_object().unwrap();
-            let t = rule["type"].as_str().unwrap();
-            match t {
-                "REPEAT" | "REPEAT1" => {
-                    let s = to_txl_3(&file2, &rule["content"]);
-                    writeln!(file, "\nredefine {}", k)?;
-                    write!(file, "    ").ok();
-                    if s != "" && s.contains("|") {
-                        let kk = format!("seq_{}", get_id());
-                        write!(&file2, "\nredefine {}", kk).ok();
-                        write!(&file2, "\n    {}", s).ok();
-                        writeln!(&file2, "\nend define").ok();
-                        writeln!(file, "[{}*]", kk)?;
-                    } else if s != "" {
-                        let d = &s[1..s.len() - 1];
-                        writeln!(file, "[{}*]", d)?;
-                    } else {
-                        writeln!(file, "    '( '{} [Range] ')", k)?;
-                    }
-                    writeln!(file, "end define")?;
+        // if !k.starts_with("_") {
+        let rule = v.as_object().unwrap();
+        let t = rule["type"].as_str().unwrap();
+
+        match t {
+            "REPEAT" | "REPEAT1" => {
+                let s = to_txl_3(&file2, &rule["content"], "");
+                writeln!(file, "\nredefine {}", k)?;
+                write!(file, "    ").ok();
+                if !k.starts_with("_") {
+                    write!(file, "[SPOFF]'< {} '>[SPON]", k).ok();
                 }
-                "CHOICE" => {
-                    let mut kk = String::from(k);
-                    if let "comment" = k.as_str() {
-                        kk = String::from("COMMENT");
-                    }
-                    writeln!(file, "\nredefine {}", kk)?;
-                    let mut generated_branches: HashSet<String> = HashSet::new();
-                    rule["members"]
-                        .as_array()
-                        .unwrap()
-                        .iter()
-                        .fold(true, |first, elem| {
-                            let elem_type = elem.as_object().unwrap()["type"].as_str().unwrap();
-                            let generated = to_txl_3(&file2, &elem).trim().to_string();
-                            if generated != "" && !generated_branches.contains(&generated) {
-                                write!(file, "    ").ok();
-                                if !first && elem_type != "ALIAS" && elem_type != "PATTERN" {
-                                    write!(file, "| ").ok();
-                                } else {
-                                    write!(file, "  ").ok();
-                                }
-                                if elem_type != "ALIAS" {
-                                    writeln!(file, "{}", generated).ok();
-                                }
-                                generated_branches.insert(generated);
-                            }
-                            false
-                        });
-                    if generated_branches.len() == 0 {
-                        writeln!(file, "'<'{}'>'<'/{}'>", k, k)?;
-                    }
-                    writeln!(file, "end define")?;
+                if s != "" && s.contains("|") {
+                    let kk = format!("seq_{}", get_id());
+                    write!(&file2, "\nredefine {}", kk).ok();
+                    write!(&file2, "\n    {}", s).ok();
+                    writeln!(&file2, "\nend define").ok();
+                    writeln!(file, "[{}*]", kk)?;
+                } else if s != "" {
+                    let d = &s[1..s.len() - 1];
+                    writeln!(file, "[{}*]", d)?;
                 }
-                "SEQ" => {
-                    let mut kk = String::from(k);
-                    if let "comment" = k.as_str() {
-                        kk = String::from("COMMENT");
-                    }
-                    let mut generated_branches: Vec<String> = Vec::new();
-                    rule["members"].as_array().unwrap().iter().for_each(|e| {
-                        let elem_value = to_txl_3(&file2, &e);
-                        if elem_value != "" {
-                            generated_branches.push(elem_value);
-                        }
-                    });
-                    writeln!(file, "\nredefine {}", kk)?;
-                    write!(file, "    ").ok();
-                    if generated_branches.len() > 0 {
-                        write!(file, "{}", generated_branches.join(" ")).ok();
-                    } else {
-                        writeln!(file, "'<'{}'>'<'/'{}'>", k, k)?;
-                    }
-                    writeln!(file, "\nend define")?;
+                if !k.starts_with("_") {
+                    write!(file, "[SPOFF]'</ {} '>[SPON]", k).ok();
                 }
-                "FIELD" => {
-                    let mut kk = String::from(k);
-                    if let "comment" = k.as_str() {
-                        kk = String::from("COMMENT");
-                    }
-                    writeln!(file, "\nredefine {}", kk)?;
-                    writeln!(
-                        file,
-                        "('{} [Range] \n {})",
-                        kk,
-                        to_txl_3(&file2, &rule["content"])
-                    )
-                    .ok();
-                    writeln!(file, "end define")?;
-                }
-                "PREC_LEFT" | "PREC" | "PREC_RIGHT" => {
-                    let content = to_txl_3(&file2, &rule["content"]);
-                    writeln!(file, "\nredefine {}", k)?;
-                    if content != "" {
-                        writeln!(file, "{}", content).ok();
-                    } else {
-                        writeln!(file, "    '( '{} [Range] ')", k)?;
-                    }
-                    writeln!(file, "end define")?;
-                }
-                "STRING" | "PATTERN" => {
-                    writeln!(file, "\nredefine {}", k)?;
-                    writeln!(file, "'{:?}", v)?;
-                    writeln!(file, "end define")?;
-                }
-                "IMMEDIATE_TOKEN" | "TOKEN" => {
-                    let content = to_txl_3(&file2, &rule["content"]);
-                    writeln!(file, "\nredefine {}", k)?;
-                    if content != "" {
-                        writeln!(file, "{}", content).ok();
-                    } else {
-                        writeln!(file, "    '( '{} [Range] ')", k)?;
-                    }
-                    writeln!(file, "end define")?;
-                }
-                _ => {}
+                writeln!(file, "end define")?;
             }
+            "CHOICE" => {
+                let mut kk = String::from(k);
+                if let "comment" = k.as_str() {
+                    kk = String::from("COMMENT");
+                }
+                writeln!(file, "\nredefine {}", kk)?;
+                let mut generated_branches: HashSet<String> = HashSet::new();
+                rule["members"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .fold(true, |first, elem| {
+                        let elem_type = elem.as_object().unwrap()["type"].as_str().unwrap();
+                        let generated = to_txl_3(&file2, &elem, "").trim().to_string();
+                        if generated != "" && !generated_branches.contains(&generated) {
+                            write!(file, "    ").ok();
+                            if !first && elem_type != "ALIAS" && elem_type != "PATTERN" {
+                                write!(file, "| ").ok();
+                            } else {
+                                write!(file, "  ").ok();
+                            }
+                            if elem_type != "ALIAS" {
+                                writeln!(file, "{}", generated).ok();
+                            }
+                            generated_branches.insert(generated);
+                        }
+                        false
+                    });
+                if generated_branches.len() == 0 {
+                    writeln!(file, "    '<'{}'>'<'/{}'>", k, k)?;
+                }
+                writeln!(file, "end define")?;
+            }
+            "SEQ" => {
+                let mut kk = String::from(k);
+                if let "comment" = k.as_str() {
+                    kk = String::from("COMMENT");
+                }
+                let mut generated_branches: Vec<String> = Vec::new();
+                rule["members"].as_array().unwrap().iter().for_each(|e| {
+                    let elem_value = to_txl_3(&file2, &e, "");
+                    if elem_value != "" {
+                        generated_branches.push(elem_value);
+                    }
+                });
+                writeln!(file, "\nredefine {}", kk)?;
+                write!(file, "    ").ok();
+                if !k.starts_with("_") {
+                    write!(file, "[SPOFF]'< {} '>[SPON]", k).ok();
+                }
+                if generated_branches.len() > 0 {
+                    write!(file, "{}", generated_branches.join(" ")).ok();
+                }
+                if !k.starts_with("_") {
+                    write!(file, "[SPOFF]'</ {} '>[SPON]", k).ok();
+                }
+                writeln!(file, "\nend define")?;
+            }
+            "FIELD" => {
+                let mut kk = String::from(k);
+                if let "comment" = k.as_str() {
+                    kk = String::from("COMMENT");
+                }
+                writeln!(file, "\nredefine {}", kk)?;
+                writeln!(
+                    file,
+                    "    {}",
+                    to_txl_3(
+                        &file2,
+                        &rule["content"],
+                        v.as_object().unwrap()["name"].as_str().unwrap()
+                    )
+                )
+                .ok();
+                writeln!(file, "end define")?;
+            }
+            "PREC_LEFT" | "PREC" | "PREC_RIGHT" => {
+                let content = to_txl_3(&file2, &rule["content"], "");
+                writeln!(file, "\nredefine {}", k)?;
+                if content != "" {
+                    writeln!(file, "{}", content).ok();
+                } else {
+                    writeln!(file, "    '( '{} [Range] ')", k)?;
+                }
+                writeln!(file, "end define")?;
+            }
+            "STRING" | "PATTERN" => {
+                writeln!(file, "\nredefine {}", k)?;
+                writeln!(
+                    file,
+                    "    '{}",
+                    v.as_object().unwrap()["value"].as_str().unwrap()
+                )?;
+                writeln!(file, "end define")?;
+            }
+            "IMMEDIATE_TOKEN" | "TOKEN" => {
+                let content = to_txl_3(&file2, &rule["content"], "");
+                writeln!(file, "\nredefine {}", k)?;
+                if content != "" {
+                    writeln!(file, "{}", content).ok();
+                } else {
+                    writeln!(file, "    '( '{} [Range] ')", k)?;
+                }
+                writeln!(file, "end define")?;
+            }
+            _ => {}
         }
+        // }
     }
     writeln!(file, "\nredefine element",)?;
     for k in rules.keys() {
-        if !k.starts_with("_") {
-            let mut kk = String::from(k);
-            if let "comment" = k.as_str() {
-                kk = String::from("COMMENT");
-            }
-            writeln!(file, "    [{}] |", kk)?;
+        // if !k.starts_with("_") {
+        let mut kk = String::from(k);
+        if let "comment" = k.as_str() {
+            kk = String::from("COMMENT");
         }
+        writeln!(file, "    [{}] |", kk)?;
+        // }
     }
     writeln!(file, "   ...\nend define")?;
     Ok(())
@@ -918,113 +944,7 @@ mod tests {
     fn test_to_txl3(v: Value) -> String {
         println!("{:?}", v);
         let file2 = File::create("tmp-seq1.grm").unwrap();
-        to_txl_3(&file2, &v)
-    }
-
-    #[test]
-    fn gen_txl3() {
-        insta::assert_snapshot!(test_to_txl3(json!({
-                  "type": "STRING",
-                  "value": ";"
-                })), @"';");
-        insta::assert_snapshot!(test_to_txl3(json!({
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "SEQ",
-                    "members": [
-                      {
-                        "type": "SYMBOL",
-                        "name": "loop_label"
-                      },
-                      {
-                        "type": "STRING",
-                        "value": ":"
-                      }
-                    ]
-                  },
-                  {
-                    "type": "BLANK"
-                  }
-                ]
-              },
-              {
-                "type": "STRING",
-                "value": "while"
-              },
-              {
-                "type": "STRING",
-                "value": "let"
-              },
-              {
-                "type": "FIELD",
-                "name": "pattern",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_pattern"
-                }
-              },
-              {
-                "type": "STRING",
-                "value": "="
-              },
-              {
-                "type": "FIELD",
-                "name": "value",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "_expression"
-                }
-              },
-              {
-                "type": "FIELD",
-                "name": "body",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "block"
-                }
-              }
-            ]
-          })
-        ), @"[loop_label] '?] 'while 'let [element] '= [element] [block]");
-
-        insta::assert_snapshot!(test_to_txl3(json!({
-            "type": "REPEAT",
-            "content": {
-              "type": "SYMBOL",
-              "name": "statement"
-            }
-        })
-        ), @"[statement*]");
-        insta::assert_snapshot!(test_to_txl3(json!({
-            "type": "PREC_LEFT",
-            "value": 0,
-            "content": {
-              "type": "SEQ",
-              "members": [
-                {
-                  "type": "STRING",
-                  "value": "continue"
-                },
-                {
-                  "type": "CHOICE",
-                  "members": [
-                    {
-                      "type": "SYMBOL",
-                      "name": "loop_label"
-                    },
-                    {
-                      "type": "BLANK"
-                    }
-                  ]
-                }
-              ]
-            }
-          })
-        ), @"'continue [loop_label?]");
+        to_txl_3(&file2, &v, "")
     }
 
     #[test]
@@ -1219,9 +1139,237 @@ mod tests {
     #[test]
     fn run_txl3() {
         tree_sitter_to_txl_3().ok();
-        // insta::assert_snapshot!(run3(r###"<line_comment>// `print_refs` takes two references to `i32` which have different</line_comment>"###), 
-        //     @r###"
-        // (identifier [3, 15] - [3, 16])
-        // "###);
+        // insta::assert_snapshot!(run3(r###"<line_comment>// `print_refs` takes two references to `i32` which have different</line_comment>"###),
+        //     @r###""###);
+    }
+
+    #[test]
+    fn get_txl3_1() {
+        insta::assert_snapshot!(test_to_txl3(json!({
+            "type": "STRING",
+            "value": ";"
+          })), @"';");
+    }
+
+    #[test]
+    fn get_txl3_2() {
+        insta::assert_snapshot!(test_to_txl3(json!({
+            "type": "SEQ",
+            "members": [
+              {
+                "type": "STRING",
+                "value": "["
+              },
+              {
+                "type": "FIELD",
+                "name": "element",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_type"
+                }
+              },
+              {
+                "type": "CHOICE",
+                "members": [
+                  {
+                    "type": "SEQ",
+                    "members": [
+                      {
+                        "type": "STRING",
+                        "value": ";"
+                      },
+                      {
+                        "type": "FIELD",
+                        "name": "length",
+                        "content": {
+                          "type": "SYMBOL",
+                          "name": "_expression"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "type": "BLANK"
+                  }
+                ]
+              },
+              {
+                "type": "STRING",
+                "value": "]"
+              }
+            ]
+          })), @"'[ [_type] [optional_3?] ']");
+    }
+
+    #[test]
+    fn gen_txl3_3() {
+        insta::assert_snapshot!(test_to_txl3(json!({
+            "type": "SEQ",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "loop_label"
+              },
+              {
+                "type": "STRING",
+                "value": ":"
+              }
+            ]
+          })), @"[loop_label] ':");
+    }
+
+    #[test]
+    fn gen_txl3_4() {
+        insta::assert_snapshot!(test_to_txl3(json!({
+            "type": "CHOICE",
+                "members": [
+                  {
+                    "type": "SEQ",
+                    "members": [
+                      {
+                        "type": "SYMBOL",
+                        "name": "loop_label"
+                      },
+                      {
+                        "type": "STRING",
+                        "value": ":"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "BLANK"
+                  }
+                ]
+              })), @"[optional_1?]");
+    }
+
+    #[test]
+    fn gen_txl3_5() {
+        insta::assert_snapshot!(test_to_txl3(json!({
+            "type": "SEQ",
+            "members": [
+              {
+                "type": "CHOICE",
+                "members": [
+                  {
+                    "type": "SEQ",
+                    "members": [
+                      {
+                        "type": "SYMBOL",
+                        "name": "loop_label"
+                      },
+                      {
+                        "type": "STRING",
+                        "value": ":"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "BLANK"
+                  }
+                ]
+              },
+              {
+                "type": "STRING",
+                "value": "while"
+              },
+              {
+                "type": "STRING",
+                "value": "let"
+              },
+              {
+                "type": "FIELD",
+                "name": "pattern",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_pattern"
+                }
+              },
+              {
+                "type": "STRING",
+                "value": "="
+              },
+              {
+                "type": "FIELD",
+                "name": "value",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_expression"
+                }
+              },
+              {
+                "type": "FIELD",
+                "name": "body",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "block"
+                }
+              }
+            ]
+          })
+        ), @"[optional_2?] 'while 'let [_pattern] '= [_expression] [block]");
+    }
+
+    #[test]
+    fn gen_txl3_6() {
+        insta::assert_snapshot!(test_to_txl3(json!({
+            "type": "REPEAT",
+            "content": {
+              "type": "SYMBOL",
+              "name": "statement"
+            }
+        })
+        ), @"[statement*]");
+    }
+
+    #[test]
+    fn gen_txl3_7() {
+        insta::assert_snapshot!(test_to_txl3(json!({
+            "type": "PREC_LEFT",
+            "value": 0,
+            "content": {
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "STRING",
+                  "value": "continue"
+                },
+                {
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "SYMBOL",
+                      "name": "loop_label"
+                    },
+                    {
+                      "type": "BLANK"
+                    }
+                  ]
+                }
+              ]
+            }
+          })
+        ), @"'continue [loop_label?]");
+    }
+
+    #[test]
+    fn gen_txl3_8() {
+        insta::assert_snapshot!(test_to_txl3(json!({
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "STRING",
+            "value": "->"
+          },
+          {
+            "type": "FIELD",
+            "name": "return_type",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_type"
+            }
+          }
+        ]
+      })), @"'-> [_type]");
     }
 }
