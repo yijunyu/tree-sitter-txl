@@ -687,35 +687,34 @@ fn tree_sitter_to_txl_3() -> Result<(), std::io::Error> {
         "include \"{}\"",
         &format!("{}-seq3.grm", v["name"].as_str().unwrap())
     )?;
-    // let extras = v["extras"].as_array().unwrap();
-    // for v in extras {
-    //     let rule = v.as_object().unwrap();
-    //     let t = rule["type"].as_str().unwrap();
-    //     match t {
-    //         "SYMBOL" => {
-    //             let k = rule["name"].as_str().unwrap();
-    //             writeln!(file, "\nredefine {}", k)?;
-    //             writeln!(file, "    '{}", k)?;
-    //             writeln!(file, "end define")?;
-    //         }
-    //         _ => {}
-    //     }
-    // }
-    // let externals = v["externals"].as_array().unwrap();
-    // for v in externals {
-    //     let rule = v.as_object().unwrap();
-    //     let t = rule["type"].as_str().unwrap();
-    //     match t {
-    //         "SYMBOL" => {
-    //             let k = rule["name"].as_str().unwrap();
-    //             writeln!(file, "\nredefine {}", k)?;
-    //             writeln!(file, "   '{}", k)?;
-    //             writeln!(file, "end define")?;
-    //         }
-    //         _ => {}
-    //     }
-    // }
-
+    let extras = v["extras"].as_array().unwrap();
+    for v in extras {
+        let rule = v.as_object().unwrap();
+        let t = rule["type"].as_str().unwrap();
+        match t {
+            "SYMBOL" => {
+                let k = rule["name"].as_str().unwrap();
+                writeln!(file, "\nredefine {}", k)?;
+                writeln!(file, "    '{}", k)?;
+                writeln!(file, "end define")?;
+            }
+            _ => {}
+        }
+    }
+    let externals = v["externals"].as_array().unwrap();
+    for v in externals {
+        let rule = v.as_object().unwrap();
+        let t = rule["type"].as_str().unwrap();
+        match t {
+            "SYMBOL" => {
+                let k = rule["name"].as_str().unwrap();
+                writeln!(file, "\nredefine {}", k)?;
+                writeln!(file, "   '{}", k)?;
+                writeln!(file, "end define")?;
+            }
+            _ => {}
+        }
+    }
     let rules = &mut v["rules"].as_object().unwrap();
     for (k, v) in rules.iter() {
         // if !k.starts_with("_") {
@@ -728,7 +727,7 @@ fn tree_sitter_to_txl_3() -> Result<(), std::io::Error> {
                 writeln!(file, "\nredefine {}", k)?;
                 write!(file, "    ").ok();
                 if !k.starts_with("_") {
-                    write!(file, "[SPOFF]'< {} '>[SPON]", k).ok();
+                    write!(file, "[SPOFF]'< '{} '>[SPON]", k).ok();
                 }
                 if s != "" && s.contains("|") {
                     let kk = format!("seq_{}", get_id());
@@ -741,7 +740,7 @@ fn tree_sitter_to_txl_3() -> Result<(), std::io::Error> {
                     writeln!(file, "[{}*]", d)?;
                 }
                 if !k.starts_with("_") {
-                    write!(file, "[SPOFF]'</ {} '>[SPON]", k).ok();
+                    write!(file, "[SPOFF]'< '/ '{} '>[SPON]", k).ok();
                 }
                 writeln!(file, "end define")?;
             }
@@ -793,15 +792,29 @@ fn tree_sitter_to_txl_3() -> Result<(), std::io::Error> {
                 writeln!(file, "\nredefine {}", kk)?;
                 write!(file, "    ").ok();
                 if !k.starts_with("_") {
-                    write!(file, "[SPOFF]'< {} '>[SPON]", k).ok();
+                    writeln!(file, "[SPOFF]'< '{} '>[SPON]", k).ok();
                 }
                 if generated_branches.len() > 0 {
-                    write!(file, "{}", generated_branches.join(" ")).ok();
+                    writeln!(file, "{}", generated_branches.join(" ")).ok();
                 }
                 if !k.starts_with("_") {
-                    write!(file, "[SPOFF]'</ {} '>[SPON]", k).ok();
+                    writeln!(file, "[SPOFF]'< '/ '{} '>[SPON]", k).ok();
                 }
                 writeln!(file, "\nend define")?;
+            }
+            "ALIAS" => {
+                writeln!(file, "\nredefine {}", k)?;
+                writeln!(
+                    file,
+                    "    {}",
+                    to_txl_3(
+                        &file2,
+                        &rule["content"],
+                        ""
+                    )
+                )
+                .ok();
+                writeln!(file, "end define")?;
             }
             "FIELD" => {
                 let mut kk = String::from(k);
@@ -833,11 +846,16 @@ fn tree_sitter_to_txl_3() -> Result<(), std::io::Error> {
             }
             "STRING" | "PATTERN" => {
                 writeln!(file, "\nredefine {}", k)?;
-                writeln!(
-                    file,
-                    "    '{}",
-                    v.as_object().unwrap()["value"].as_str().unwrap()
-                )?;
+                if t == "STRING" {
+                    writeln!(
+                        file,
+                        "    '{}",
+                        v.as_object().unwrap()["value"].as_str().unwrap()
+                    )?;
+                } else {
+                    // PATTERN
+                    writeln!(file, "    [id]")?;
+                }
                 writeln!(file, "end define")?;
             }
             "IMMEDIATE_TOKEN" | "TOKEN" => {

@@ -11,5 +11,6 @@ function main
     replace [program]
         XMLdoc [program]
     by
-        XMLdoc [checkWellFormed]
+        XMLdoc 
+		% [checkWellFormed]
 end function
